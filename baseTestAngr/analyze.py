@@ -8,7 +8,7 @@ binary_path = "./elf_files/test_elf"
 project = angr.Project(binary_path, auto_load_libs=False)
 
 
-# ищу адреса функции strcpy в таблице импорта.
+# поиск функции strcpy в таблице импорта (Procedure Linkage Table)
 # это одна из возможных "опасных" точек.
 strcpy_plt = project.loader.find_symbol('strcpy').rebased_addr
 
@@ -18,11 +18,14 @@ if strcpy_plt is None:
 
 print(f"Цель найдена: вызов strcpy находится по адресу {hex(strcpy_plt)}")
 
+
+# цель - найти переполнение буфера, поэтому 
+# символьная переменная должна быть больше 16 байт (как указано в тестовой программе)
 sym_arg_size = 30 
 symbolic_arg = claripy.BVS("sym_arg_1", 8 * sym_arg_size)
 
-# full_init_state имитирует запуск программы.
-# запуск программы с symbolic_arg в качестве первого аргумента
+# Инициализируем состояние программы с учетом всех библиотек, 
+# передав этот ввод как аргумент командной строки (argv[1])
 initial_state = project.factory.full_init_state(
     args=[binary_path, symbolic_arg]
 )

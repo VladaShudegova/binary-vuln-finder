@@ -1,0 +1,14 @@
+strict digraph {
+<CFGNode main+0x1c [24]>;
+<CFGNode main [28]>;
+<CFGNode main+0x34 [8]>;
+<CFGNode main+0x4c [4]>;
+<CFGNode main+0x50 [8]>;
+<CFGNode main+0x3c [16]>;
+<CFGNode main+0x1c [24]> -> <CFGNode main+0x34 [8]> [jumpkind="Ijk_FakeRet", ins_addr=4196076, stmt_idx="-2"];
+<CFGNode main [28]> -> <CFGNode main+0x3c [16]> [jumpkind="Ijk_Boring", ins_addr=4196052, stmt_idx=55];
+<CFGNode main [28]> -> <CFGNode main+0x1c [24]> [jumpkind="Ijk_Boring", ins_addr=4196052, stmt_idx="-2"];
+<CFGNode main+0x34 [8]> -> <CFGNode main+0x50 [8]> [jumpkind="Ijk_Boring", ins_addr=4196084, stmt_idx="-2"];
+<CFGNode main+0x4c [4]> -> <CFGNode main+0x50 [8]> [jumpkind="Ijk_Boring", ins_addr=4196104];
+<CFGNode main+0x3c [16]> -> <CFGNode main+0x4c [4]> [jumpkind="Ijk_FakeRet", ins_addr=4196100, stmt_idx="-2"];
+}

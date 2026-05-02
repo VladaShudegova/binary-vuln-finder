@@ -4,18 +4,18 @@ import claripy
 
 from techniques import DirectedSearch 
 
-# загрузка проекта и статический анализ для получения CFG
+# loading the project and static analysis to obtain CFG
 binary_path = "./elf_files/test_elf"
 project = angr.Project(binary_path, auto_load_libs=False)
 
 print("Building CFG...")
 cfg = project.analyses.CFGFast(normalize=True)
 
-# поиск strcpy
+# strcpy search 
 strcpy_symbol = project.loader.find_symbol('strcpy')
 strcpy_addr = strcpy_symbol.rebased_addr
 
-# поиск точек вызова 
+# search for call points
 target_addresses = []
 for node in cfg.model.nodes():
     successors = cfg.model.graph.successors(node)
@@ -25,10 +25,8 @@ for node in cfg.model.nodes():
 
 
 
-# символьное выполнение с техникой направленного поиска
+# symbolic execution with directed search technique
 print("\n[*] Starting directed symbolic execution...")
-
-
 
 arg_size = 50 
 symbolic_arg = claripy.BVS("input_string", 8 * arg_size)
@@ -49,7 +47,7 @@ state = project.factory.entry_state(
     }
 )
 
-# принудительная установка argc 
+# forced installation of argc
 state.regs.x0 = argc 
 
 simgr = project.factory.simulation_manager(state)
@@ -60,12 +58,12 @@ search_technique = DirectedSearch(cfg, target_addr)
 simgr.use_technique(search_technique)
 
 
-# поиск пути к цели
+# finding the path to the goal
 simgr.explore(find=target_addr)
 
 print("\n[*] Start direct search...")
 
-# вместо explore используется цикл, пока не будет найдена цель или не кончатся пути
+# Instead of explore, a loop is used until the target is found or there are no more paths
 while simgr.active:
     simgr.step() # здесь автоматически вызывается DirectedSearch.step()
     

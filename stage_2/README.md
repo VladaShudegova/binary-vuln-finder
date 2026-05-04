@@ -18,9 +18,9 @@ A specialized exploration class was developed on top of the **angr** framework t
 
 To guide the search, a mathematical heuristic was integrated using the **NetworkX** library.
 
-**BFS Algorithm**: The tool treats the program's Control Flow Graph (CFG) as a directed graph \(G = (V, E)\). It uses **Breadth-First Search (BFS)** to calculate the shortest distance \(L\) from the current basic block \(v_{curr}\) to the target \(v_{target}\).
+**BFS Algorithm**: The tool treats the program's Control Flow Graph (CFG) as a directed graph $\(G = (V, E)\)$. It uses **Breadth-First Search (BFS)** to calculate the shortest distance $\(L\)$ from the current basic block $\(v_{curr}\)$ to the target $\(v_{target}\)$.
 
-**Path Pruning**: Implemented a pruning mechanism where states with \(L = \infty\) (unreachable targets) are automatically postponed. This significantly reduces the load on the SMT solver and prevents memory exhaustion.
+**Path Pruning**: Implemented a pruning mechanism where states with $\(L = \infty\)$ (unreachable targets) are automatically postponed. This significantly reduces the load on the SMT solver and prevents memory exhaustion.
 
 ## 3. Workflow
 
@@ -32,7 +32,7 @@ The analysis process follows these technical steps:
 
 3. **Heuristic Evaluation**: During each simulation step, the distance to the target is recalculated for every active path.
 
-4. **Directed Execution**: The simulation manager executes the most promising paths first, based on the calculated \(L\) values.
+4. **Directed Execution**: The simulation manager executes the most promising paths first, based on the calculated $\(L\)$ values.
 
 ## 4. Key Results
 

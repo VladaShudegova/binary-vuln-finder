@@ -1,25 +1,48 @@
-# Binary Vulnerability Finder (Directed Symbolic Execution)
+# Development Report: Implementation of Directed Symbolic Execution (DSE) for Vulnerability Discovery
 
-This project implements a binary analysis tool based on the **angr** framework, designed to find vulnerabilities (such as buffer overflows) using **Directed Symbolic Execution**.
+## 1. Objective
+The goal of this stage was to develop a core mechanism for guided binary analysis. 
+The focus was on implementing **Directed Symbolic Execution (DSE)** to reach specific "vulnerability sinks" (e.g., `strcpy`) while mitigating the **Path Explosion** problem through heuristic-based graph analysis.
 
-## Key Features
+## 2. Implemented Modules
 
- **Custom Exploration Technique**: Implements a `DirectedSearch` class that prioritizes execution paths leading to a specific target (e.g., `strcpy`, `system`).
- 
- **Path Pruning**: Automatically detects and postpones "dead-end" paths using Control Flow Graph (CFG) analysis to solve the **Path Explosion** problem.
- 
- **BFS-based Heuristics**: Uses the Breadth-First Search algorithm (via `NetworkX`) to calculate the shortest distance between the current state and the vulnerability site.
- 
- **Automated Payload Generation**: When a target is reached, the tool automatically calculates the necessary input string (payload) to trigger the state.
+### 2.1 Custom Exploration Technique (`DirectedSearch`)
 
-## Mathematical Background
+A specialized exploration class was developed on top of the **angr** framework to override the default path selection logic.
 
-The core of the tool is a heuristic function $L = dist(v_{curr}, v_{target})$. 
-1. It treats the program as a directed graph $G = (V, E)$.
-2. It uses **BFS** to find the shortest path in the CFG.
-3. States with $L = \infty$ are moved to a `deferred` stash, significantly reducing memory consumption and SMT solver load.
+**Prioritization**: The technique ranks active states based on their proximity to the target address in the program's structure.
 
-## Tech Stack
+**State Management**: Introduced a system of "stashes" where promising states remain `active`, while non-promising ones are moved to a `deferred` stash.
+
+### 2.2 Graph-Based Heuristic Engine
+
+To guide the search, a mathematical heuristic was integrated using the **NetworkX** library.
+
+**BFS Algorithm**: The tool treats the program's Control Flow Graph (CFG) as a directed graph \(G = (V, E)\). It uses **Breadth-First Search (BFS)** to calculate the shortest distance \(L\) from the current basic block \(v_{curr}\) to the target \(v_{target}\).
+
+**Path Pruning**: Implemented a pruning mechanism where states with \(L = \infty\) (unreachable targets) are automatically postponed. This significantly reduces the load on the SMT solver and prevents memory exhaustion.
+
+## 3. Workflow
+
+The analysis process follows these technical steps:
+
+1. **Static Analysis**: Generation of a Control Flow Graph (CFG) to map the binary's internal structure.
+
+2. **Target Definition**: Identification of critical function symbols or raw memory addresses.
+
+3. **Heuristic Evaluation**: During each simulation step, the distance to the target is recalculated for every active path.
+
+4. **Directed Execution**: The simulation manager executes the most promising paths first, based on the calculated \(L\) values.
+
+## 4. Key Results
+
+**Path Selection Efficiency**: The algorithm demonstrated the ability to ignore irrelevant code branches (e.g., error handling or unrelated logic).
+
+**Automated Payload Generation**: Successfully integrated **Claripy** to solve path constraints once the target is reached. The tool produces concrete input strings (payloads) restricted to printable ASCII characters.
+
+**Resource Optimization**: Real-time statistics showed a significant decrease in the number of concurrent states compared to standard Breadth-First exploration.
+
+## 5. Tech Stack
 
 - **Python 3.12**
 - **angr** (Symbolic Execution Engine)
@@ -27,8 +50,5 @@ The core of the tool is a heuristic function $L = dist(v_{curr}, v_{target})$.
 - **Claripy** (SMT Solver Wrapper)
 
 
-## Statistics Output
-The tool provides real-time console feedback:
- **Paths explored**: Total number of execution states analyzed.
- **Dead-end branches pruned**: Number of non-promising paths successfully filtered out.
- **Payload**: The specific input required to reach the target function.
+## 6. Conclusion
+The implementation of DSE proved that using CFG-based heuristics is an effective way to guide symbolic execution. By prioritizing paths based on their distance to the target, the tool successfully reached the vulnerability site and generated a valid exploit payload, confirming the viability of the chosen architectural approach.

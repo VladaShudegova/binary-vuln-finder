@@ -67,13 +67,13 @@ print("\n[*] Запуск комбинированного поиска (MPC + D
 
 
 while simgr.active:
-    simgr.step() # здесь автоматически вызывается DirectedSearch.step()
+    simgr.step() 
     
-    # провнрка достижения состояния цели
+   
     for state in simgr.active:
         if state.addr == target_addr or (state.history.addr and state.history.addr == target_addr):
             print(f"[!] Target {hex(target_addr)} achieved!")
-            # перенос состояния в stash 'found' и остановка цикла
+          
             simgr.move('active', 'found', lambda s: s.addr == target_addr)
             break
     

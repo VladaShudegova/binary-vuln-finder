@@ -2,7 +2,7 @@ import angr
 import networkx as nx
 import claripy
 
-from techniques import DirectedSearch 
+from naive.DSE.techniques import DirectedSearch 
 
 # loading the project and static analysis to obtain CFG
 binary_path = "./elf_files/test_elf"

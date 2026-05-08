@@ -1,9 +1,9 @@
 import angr
 import networkx as nx
 import claripy
-from techniques import DirectedSearch 
+from naive.mpc.techniques import DirectedSearch 
 
-from static_analysis import MPCPlanner
+from naive.mpc.static_analysis import MPCPlanner
 
 
 

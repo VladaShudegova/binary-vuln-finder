@@ -1,7 +1,7 @@
 import angr
 import claripy
-from static_analysis import MPCPlanner
-from techniques import DirectedSearch
+from naive.scanner.static_analysis import MPCPlanner
+from naive.scanner.techniques import DirectedSearch
 from scanner import VulnerabilityScanner
 
 

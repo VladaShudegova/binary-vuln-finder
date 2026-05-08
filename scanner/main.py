@@ -52,7 +52,7 @@ for target in targets:
 
     if simgr.found:
         final_state = simgr.found[0] 
-
+        simgr.step(num_inst=5)
         if scanner.verify_overflow(final_state):
             print(f"[+] Vulnerability confirmed for {target['name']} at {hex(target['addr'])}! \n")
             payload, size = scanner.generate_payload(final_state, symbolic_arg)

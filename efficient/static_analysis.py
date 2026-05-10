@@ -92,12 +92,10 @@ class MPCPlanner:
                 milestones.add(curr.addr)
                 curr = doms[curr]
             milestones.add(start_node.addr)
-        except KeyError as e:
-            logger.debug(f"Dominator path broken: node {e} not found. Graph might be disconnected.")
+            return self._get_sorted_milestones(milestones, start_node)
         except Exception as e:
-            logger.warning(f"Could not calculate milestones: {e}")
-            
-        return milestones
+            logger.warning(f"Error calculating milestones: {e}")
+            return list(milestones)
     
     
     def _has_indirect_jump(self, node):
@@ -114,4 +112,24 @@ class MPCPlanner:
             return mnemonic in ['call', 'jmp'] and len(last_inst.operands) > 0 and last_inst.operands[0].type == 1 # X86_OP_REG
         except Exception:
             return False
+
+    def _get_sorted_milestones(self, milestones, start_node):
+        """
+        Sorts milestones by distance from the entry point to ensure linear progression.
+        """
+        milestone_nodes = [self.cfg.model.get_any_node(addr) for addr in milestones]
+        # filter out None nodes 
+        milestone_nodes = [n for n in milestone_nodes if n is not None]
+
+        # sort by shortest path length from start_node
+        try:
+            sorted_nodes = sorted(
+                milestone_nodes, 
+                key=lambda n: nx.shortest_path_length(self.graph, start_node, n)
+            )
+            return [n.addr for n in sorted_nodes]
+        except Exception as e:
+            logger.warning(f"Failed to sort milestones: {e}. Using unsorted set.")
+            return list(milestones)
+
 

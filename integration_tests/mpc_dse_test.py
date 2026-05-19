@@ -10,6 +10,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from efficient.dynamic_analysis import DirectedSearch
 from efficient.static_analysis import MPCPlanner
+from efficient.scanner import VulnerabilityScanner
 
 
 binary_path = "./elf_files/test_mpc_1_x86"
@@ -31,7 +32,7 @@ if not targets:
     print("[-] No dangerous functions found in PLT. Check your compilation flags (-no-pie).")
     
 
-# 1. Static Analysis Phase
+# static Analysis Phase
 planner = MPCPlanner(project)
 
 main_symbol = project.loader.find_symbol('main')
@@ -64,17 +65,21 @@ for name, target_addr in targets:
 
     state.add_constraints(arg3 == "42\0\0")
     
-    simgr = project.factory.simulation_manager(state)
+    simgr = project.factory.simulation_manager(state, save_unconstrained=True)
     
     dse = DirectedSearch(sorted_ms, target_addr)
     simgr.use_technique(dse)
     
     print(f"[*] Starting Directed Search for {name}...")
     simgr.run()
+
+    scanner = VulnerabilityScanner(project)
+    scanner.scan(simgr)
+
     if simgr.deadended:
         print(f"[DEBUG] Last deadended address: {hex(simgr.deadended[-1].addr)}")
 
-    # Check the result for this specific target
+    # check the result for this specific target
     if simgr.active: # or simgr.found, depends on the implementation of the technique
         print(f"[***] VICTORY: Reached {name} at {hex(target_addr)}")
     

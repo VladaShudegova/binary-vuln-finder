@@ -42,21 +42,43 @@ class DirectedSearch(angr.ExplorationTechnique):
         if not simgr.stashes[stash]:
             return simgr
         
+        if self.current_idx < len(self.milestones):
+            target = self.milestones[self.current_idx]
+        else:
+            target = self.final_target
         
+       
+        if self.current_idx >= len(self.milestones):
+            logger.info("[*] Navigation complete. Free movement of angr inside vulnerability.bad()")
+            return simgr.step(stash=stash, **kwargs)
+        
+
+                # Условие Б: Наша текущая цель — это уже финальная функция bad()
+        if target == self.final_target:
+            logger.info("[*] Final target close. Forcing deep free execution inside bad().")
+            
+            # Делаем один шаг, чтобы физически переступить порог функции bad() (сесть на адрес 0x80492d0)
+            simgr.step(**kwargs)
+            
+            # Включаем глубокий пошаговый прогон (до 40 шагов), чтобы angr 
+            # гарантированно дошел до внутренних инструкций массива (0x80492e7 и далее)
+            # и успел вызвать переполнение или краш памяти
+            for _ in range(40):
+                if len(simgr.active) == 0:
+                    break
+                simgr.step(**kwargs)
+                
+            # Возвращаем менеджер, наполненный результатами глубокого прогона
+            return simgr
+
+
         if self.current_idx == 0:
             state = simgr.stashes[stash][0]
             if state.addr == self.milestones[0]:
                 logger.info(f"[*] Force started from main {hex(state.addr)}. Moving to next milestone.")
                 self.current_idx = 1
                 return simgr.step(stash=stash, **kwargs)
-
-        # define the current goal: final or next milestone
-        if self.current_idx < len(self.milestones):
-            target = self.milestones[self.current_idx]
-        else:
-            target = self.final_target
-
-
+            
         # find=target makes angr search this addres
         simgr.explore(find=target, n=1)
 
@@ -72,6 +94,24 @@ class DirectedSearch(angr.ExplorationTechnique):
             print(f"\n[+] Checkpoint {self.current_idx} reached at {hex(target)}!")
             print(f"[+] Moving to Step {self.current_idx + 1}. Next goal: {hex(next_target)}")
 
+            if next_target == self.final_target:
+                print("[*] Final target close! Forcing deep free execution inside bad() right now.")
+
+                if len(simgr.active) == 0 and len(simgr.found) > 0:
+                    simgr.move('found', 'active')
+
+                for step_num in range(150):
+                    # Печатаем мини-дебаг, чтобы видеть движение angr глазами
+                    print(f"  [Free Step {step_num}] Active states: {len(simgr.active)} | Errored: {len(simgr.errored)}")
+                    
+                    if len(simgr.active) == 0:
+                        print("  [!] Active states dropped to 0 during free run. Breaking.")
+                        break
+                        
+                    # Шагаем строго по стэшу active
+                    simgr.step(stash='active', **kwargs)
+
+                return simgr
         
             return simgr.step(stash='active', **kwargs)
 

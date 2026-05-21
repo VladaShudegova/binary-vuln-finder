@@ -3,6 +3,27 @@ test_elf
 *.out
 *.o
 
+# Артефакты работы скрипта juliet-dynamic (ИСП РАН)
+juliet-dynamic/bin/
+juliet-dynamic/results/
+juliet-dynamic/inputs/
+juliet-dynamic/obj/
+
+# Временные папки сгенерированных тест-кейсов и логов angr
+payload_*.bin
+.angr/
+*.log
+
+# Результаты компиляции Juliet (если какие-то файлы соберутся вне стандартных папок)
+*.elf
+*.o
+
+# Архив результатов и тяжелая статистика
+juliet-dynamic/results.tar.xz
+juliet-dynamic/stats.*
+
+# Огромный набор исходных тест-кейсов Juliet
+juliet-dynamic/testcases/
 
 # Виртуальное окружение
 venv/

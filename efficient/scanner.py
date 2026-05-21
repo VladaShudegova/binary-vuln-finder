@@ -6,12 +6,58 @@ class VulnerabilityScanner:
     
     
     def check_rip_control(self, state):
-        """Более надежная проверка: может ли RIP принимать более одного значения?"""
-        if not state.regs.rip.symbolic:
+        """Automatically checks eip (32-bit) or rip (64-bit) for input control"""
+        # Определяем правильное имя регистра указателя инструкций для текущей архитектуры
+        pc_reg_name = 'eip' if hasattr(state.regs, 'eip') else 'rip'
+        pc_reg = getattr(state.regs, pc_reg_name)
+
+        if not pc_reg.symbolic:
             return False
+
+        current_pc = state.solver.eval(pc_reg)
+        return state.solver.satisfiable(extra_constraints=[pc_reg != current_pc])
+
+    def check_array_bounds_overflow(self, state, array_size=10):
+        """Smart check: can a symbolic variable used as an index extend beyond the bounds"""
+        if hasattr(state, 'error') and state.error is not None:
+            return True
         
-        current_rip = state.solver.eval(state.regs.rip)
-        return state.solver.satisfiable(extra_constraints=[state.regs.rip != current_rip])
+        if any(bad_tag in str(state.history.descriptions) for bad_tag in ['crash', 'error']):
+            return True
+        # Объединяем 32-битные и 64-битные регистры. Несуществующие будут безопасно пропущены
+        registers_to_check = ['eax', 'ebx', 'ecx', 'edx', 'esi', 'edi', 'ebp', 'r8', 'r9', 'r10']
+        
+        for reg_name in registers_to_check:
+            if hasattr(state.regs, reg_name):
+                try:
+                    reg_val = getattr(state.regs, reg_name)
+                    if reg_val.symbolic:
+                        # Проверяем математически через z3/claripy
+                        can_be_negative = state.solver.satisfiable(extra_constraints=[reg_val < 0])
+                        can_be_overflow = state.solver.satisfiable(extra_constraints=[reg_val >= array_size])
+                        
+                        if can_be_negative or can_be_overflow:
+                            # 2. Переломный момент: просим солвер найти конкретный ломающий индекс, 
+                            # подставив экстремальное условие как целевое
+                            if can_be_overflow:
+                                target_constraint = reg_val >= array_size
+                            else:
+                                target_constraint = reg_val < 0
+                                
+                            # Генерируем конкретное значение регистра, которое ОДНОВРЕМЕННО 
+                            # удовлетворяет коду программы И выходит за границы массива
+                            concrete_bad_index = state.solver.eval(reg_val, extra_constraints=[target_constraint])
+                            
+                            # Если солвер смог успешно решить это уравнение, мы принудительно 
+                            # закрепляем это ломающее условие в состоянии, чтобы angr сдампил именно рабочий эксплоит
+                            state.add_constraints(reg_val == concrete_bad_index)
+                            return True
+                except AttributeError:
+                    continue
+        return False
+
+
+
 
     def scan(self, simgr):
         print("\n" + "="*50)

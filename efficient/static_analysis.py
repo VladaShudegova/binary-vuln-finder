@@ -113,6 +113,44 @@ class MPCPlanner:
         except Exception:
             return False
 
+    def find_array_access_targets(self, func_addr):
+        """
+        Умный планер: собирает инструкции обращения к массиву только тогда, 
+        когда они не защищены проверками границ (исключает ложные вехи в _good ветках).
+        """
+        cfg = self.project.analyses.CFGFast()
+        func = cfg.functions.get(func_addr)
+        if not func:
+            return []
+
+        array_targets = []
+
+        # Обходим все базовые блоки внутри функции
+        for block in func.blocks:
+            # Проверяем, есть ли в текущем блоке инструкции сравнения/валидации
+            has_bounds_check = False
+            for insn in block.capstone.insns:
+                # Ищем инструкции сравнения, которые компилятор ставит для "if (index < size)"
+                if insn.mnemonic in ['cmp', 'test']:
+                    has_bounds_check = True
+                    break
+
+            # Если блок содержит проверку границ, мы полностью ИГНОРИРУЕМ его инструкции массива.
+            # Это защитит нас от построения путей до безопасных Good Sinks.
+            if has_bounds_check:
+                continue
+
+            # Если блок "чистый" (без проверок), ищем в нем инструкции обращения к памяти
+            for insn in block.capstone.insns:
+                op_str = insn.op_str
+                if "[" in op_str and ("*" in op_str or "+" in op_str):
+                    # Дополнительный фильтр: исключаем системные обращения к кадру стека (ebp/esp)
+                    if "ebp" not in op_str and "esp" not in op_str:
+                        array_targets.append(insn.address)
+
+        return array_targets
+
+
     def _get_sorted_milestones(self, milestones, start_node):
         """
         Sorts milestones by distance from the entry point to ensure linear progression.

@@ -53,22 +53,25 @@ class DirectedSearch(angr.ExplorationTechnique):
             return simgr.step(stash=stash, **kwargs)
         
 
-                # Условие Б: Наша текущая цель — это уже финальная функция bad()
+        # Condition B: Our current target is 
+        # the final bad() function
         if target == self.final_target:
             logger.info("[*] Final target close. Forcing deep free execution inside bad().")
             
-            # Делаем один шаг, чтобы физически переступить порог функции bad() (сесть на адрес 0x80492d0)
+            # Executing one step to enter the bad() function
+            # and land on address 0x80492d0
             simgr.step(**kwargs)
             
-            # Включаем глубокий пошаговый прогон (до 40 шагов), чтобы angr 
-            # гарантированно дошел до внутренних инструкций массива (0x80492e7 и далее)
-            # и успел вызвать переполнение или краш памяти
+            # Enabling deep step-by-step execution (up to 40 steps)
+            # to guarantee angr reaches internal array instructions (0x80492e7 and beyond)
+            # and triggers a memory corruption or crash
+
             for _ in range(40):
                 if len(simgr.active) == 0:
                     break
                 simgr.step(**kwargs)
                 
-            # Возвращаем менеджер, наполненный результатами глубокого прогона
+            # Returning manager containing deep execution data
             return simgr
 
 
@@ -79,10 +82,8 @@ class DirectedSearch(angr.ExplorationTechnique):
                 self.current_idx = 1
                 return simgr.step(stash=stash, **kwargs)
             
-        # find=target makes angr search this addres
         simgr.explore(find=target, n=1)
 
-        # if find cheackpoint
         if simgr.found:
             self.current_idx += 1
             self._draw_progress(target)
@@ -101,21 +102,20 @@ class DirectedSearch(angr.ExplorationTechnique):
                     simgr.move('found', 'active')
 
                 for step_num in range(150):
-                    # Печатаем мини-дебаг, чтобы видеть движение angr глазами
+                    # Printing debug info to track angr execution flow
                     print(f"  [Free Step {step_num}] Active states: {len(simgr.active)} | Errored: {len(simgr.errored)}")
                     
                     if len(simgr.active) == 0:
                         print("  [!] Active states dropped to 0 during free run. Breaking.")
                         break
                         
-                    # Шагаем строго по стэшу active
+                    # Processing the active stash only
                     simgr.step(stash='active', **kwargs)
 
                 return simgr
         
             return simgr.step(stash='active', **kwargs)
 
-        # deadlock
         if not simgr.active and not simgr.found:
             print(f"\n[!] DSE stalled at step {self.current_idx}. Active states: 0")
             print(f"[!] Target was: {hex(target)}")

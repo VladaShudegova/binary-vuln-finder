@@ -25,6 +25,8 @@ juliet-dynamic/stats.*
 # Огромный набор исходных тест-кейсов Juliet
 juliet-dynamic/testcases/
 
+juliet-dynamic/bin_selective/
+
 # Виртуальное окружение
 venv/
 .venv/

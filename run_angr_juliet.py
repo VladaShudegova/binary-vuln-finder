@@ -15,15 +15,15 @@ from efficient.scanner import VulnerabilityScanner
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--binary", required=True)
-    parser.add_argument("--input", required=True)   # Начальный валидный ввод от ИСП РАН
-    parser.add_argument("--outdir", required=True)  # Папка для сохранения результатов мутации
+    parser.add_argument("--input", required=True)   # Initial valid test case provided by ISP RAS
+    parser.add_argument("--outdir", required=True)  # Output directory for storing mutation artifacts
     args = parser.parse_args()
 
    
     project = angr.Project(args.binary, auto_load_libs=False, use_sim_procedures=True)
 
-    # 1. Автоматический поиск опасной функции (например, strcpy или memcpy)
-    # Универсальный список опасных функций для CWE-121
+    # 1. Automated search for a dangerous function (e.g., strcpy or memcpy)
+    # Universal list of dangerous functions for CWE-121
     danger_functions = ['strcpy', 'memcpy', 'sprintf', 'strcat']     
     target_addr = None
     target_func_obj = None
@@ -31,7 +31,7 @@ def main():
     print("[*] Построение CFG для поиска объектов функций...")
     cfg = project.analyses.CFGFast()
 
-    # Ищем, импортирует ли бинарник одну из опасных функций через PLT
+    # Verifying whether the binary imports any dangerous functions through the PLT
     for func_name in danger_functions:
         plt_symbol = project.loader.main_object.plt.get(func_name)
         if plt_symbol is not None:
@@ -45,12 +45,12 @@ def main():
                 target_addr = symbol.rebased_addr
                 print(f"[*] Резервная цель (символ функции): {symbol.name} на {hex(target_addr)}")
 
-                # Извлекаем полноценный объект функции из CFG по её адресу
+                # Retrieving the complete function object from the CFG using its address
                 target_func_obj = cfg.functions.get(target_addr)
                 break
 
     if not target_addr:
-        # Если в бинарнике нет ни опасных функций, ни bad — уязвимости точно нет
+        # If the binary lacks both dangerous functions and bad(), it is guaranteed to be secure
         sys.exit(0)
     
     print(f"[DEBUG] Найден адрес цели target_addr: {hex(target_addr) if target_addr else 'НЕ НАЙДЕН'}")
@@ -68,31 +68,28 @@ def main():
     if target_func_obj is not None:
         print(f"[*] Цель является функцией ({target_func_obj.name}). Поиск инструкций работы с массивами...")
 
-        # Передаем методу ОБЪЕКТ функции (target_func_obj), как он и ожидает
+        # Passing the function OBJECT (target_func_obj) to the method as expected
         internal_targets = planner.find_array_access_targets(target_func_obj.addr)
 
 
         if internal_targets:
-            # Расширяем исходные вехи адресами внутренних ассемблерных команд
-            sorted_ms.extend(internal_targets)
+            # Appending addresses of internal assembly instructions to the initial milestones            sorted_ms.extend(internal_targets)
             print(f"[+] Граф вех успешно расширен инструкциями массива: {[hex(t) for t in internal_targets]}")
 
 
-    # Чтение начального ввода и настройка символического POSIX stdin
+    # Reading initial input and setting up the symbolic POSIX stdin
     with open(args.input, 'rb') as f:
         initial_data = f.read()
 
     symbolic_size = max(len(initial_data) * 4, 1024)
     symbolic_input = claripy.BVS('juliet_stdin', symbolic_size * 8)
 
- 
-     # Создаем универсальный файл с символическим содержимым
+    # Initializing a generic file containing symbolic data
     sim_file = angr.storage.SimFile(name="stdin", content=symbolic_input, size=symbolic_size)
 
-    # Передаем этот файл ПРЯМО в момент инициализации состояния через параметр stdin
     state = project.factory.full_init_state(
         args=[args.binary],
-        stdin=sim_file, # <--- Передаем символический файл сюда напрямую
+        stdin=sim_file, # Injecting the symbolic file directly into this argument
         add_options={
             angr.options.SYMBOL_FILL_UNCONSTRAINED_REGISTERS,
             angr.options.SYMBOL_FILL_UNCONSTRAINED_MEMORY,
@@ -106,25 +103,20 @@ def main():
     simgr.use_technique(dse)
 
     print(f"[*] Запуск симуляция!")
-    simgr.run(timeout=120) # Внутренний таймаут на один бинарник
+    simgr.run(timeout=120) # Internal timeout limit per single binary
 
     print("="*40 + "\n")
-    print(f"[DEBUG] Симуляция окончена!")
-    print(f"  Активных состояний (active): {len(simgr.active)}")
-    print(f"  Ошибочных состояний (errored): {len(simgr.errored)}")
-    print(f"  Успешно завершенных (deadended): {len(simgr.deadended)}")
     if hasattr(simgr, 'unconstrained'):
         print(f"  Неконтролируемых (unconstrained): {len(simgr.unconstrained)}")
     print("="*40 + "\n")
 
-    # Извлечение мутировавших данных (payload), приведших к уязвимости
+    # Extracting the mutated input data (payload) responsible for the vulnerability    scanner = VulnerabilityScanner(project)
     scanner = VulnerabilityScanner(project)
     file_counter = 0
 
 
     all_states = simgr.active + getattr(simgr, 'unconstrained', []) + [e.state for e in simgr.errored] + simgr.deadended
 
-    # Измените логику сбора состояний в конце run_angr_juliet.py:
     for st in all_states:
        
         is_crash = st in [e.state for e in simgr.errored]

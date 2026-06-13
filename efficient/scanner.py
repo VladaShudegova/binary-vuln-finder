@@ -7,7 +7,7 @@ class VulnerabilityScanner:
     
     def check_rip_control(self, state):
         """Automatically checks eip (32-bit) or rip (64-bit) for input control"""
-        # Определяем правильное имя регистра указателя инструкций для текущей архитектуры
+        # Determine the correct instruction pointer register name for the current architecture
         pc_reg_name = 'eip' if hasattr(state.regs, 'eip') else 'rip'
         pc_reg = getattr(state.regs, pc_reg_name)
 
@@ -24,7 +24,8 @@ class VulnerabilityScanner:
         
         if any(bad_tag in str(state.history.descriptions) for bad_tag in ['crash', 'error']):
             return True
-        # Объединяем 32-битные и 64-битные регистры. Несуществующие будут безопасно пропущены
+        # Merging 32-bit and 64-bit registers.
+        # Non-existent entries will be safely skipped.
         registers_to_check = ['eax', 'ebx', 'ecx', 'edx', 'esi', 'edi', 'ebp', 'r8', 'r9', 'r10']
         
         for reg_name in registers_to_check:
@@ -32,25 +33,26 @@ class VulnerabilityScanner:
                 try:
                     reg_val = getattr(state.regs, reg_name)
                     if reg_val.symbolic:
-                        # Проверяем математически через z3/claripy
+                        # Verifying mathematically using z3/claripy
                         can_be_negative = state.solver.satisfiable(extra_constraints=[reg_val < 0])
                         can_be_overflow = state.solver.satisfiable(extra_constraints=[reg_val >= array_size])
                         
                         if can_be_negative or can_be_overflow:
-                            # 2. Переломный момент: просим солвер найти конкретный ломающий индекс, 
-                            # подставив экстремальное условие как целевое
+                            # 2. Critical point: solving for a specific breaking index 
+                            # by injecting an extreme target constraint
                             if can_be_overflow:
                                 target_constraint = reg_val >= array_size
                             else:
                                 target_constraint = reg_val < 0
                                 
-                            # Генерируем конкретное значение регистра, которое ОДНОВРЕМЕННО 
-                            # удовлетворяет коду программы И выходит за границы массива
+                            # Generating a specific register value that simultaneously
+                            # satisfies the program constraints and exceeds the array bounds
+
                             concrete_bad_index = state.solver.eval(reg_val, extra_constraints=[target_constraint])
                             
-                            # Если солвер смог успешно решить это уравнение, мы принудительно 
-                            # закрепляем это ломающее условие в состоянии, чтобы angr сдампил именно рабочий эксплоит
-                            state.add_constraints(reg_val == concrete_bad_index)
+                           # If the constraints are satisfiable, we inject this breaking condition 
+                           # into the state to guarantee angr generates 
+                           # a functional exploit state.add_constraints(reg_val == concrete_bad_index)
                             return True
                 except AttributeError:
                     continue
